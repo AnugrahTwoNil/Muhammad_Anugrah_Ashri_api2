@@ -21,7 +21,7 @@ class PendaftaranOsisController extends Controller
         // GET daftar pendaftaran seharusnya menyertakan data kelas dan jenis kelamin melalui relasi siswa.
         // Jalankan GET /api/pendaftaran-osis di Postman dan periksa object siswa pada setiap item.
         // Mengapa data kelas dan jenis kelamin belum muncul pada daftar, padahal pada GET detail sudah lengkap?
-        $pendaftaran = PendaftaranOsis::with('siswa')->get();
+        $pendaftaran = PendaftaranOsis::with('siswa.kelas', 'siswa.jenisKelamin')->get();
 
         return PendaftaranOsisResource::collection($pendaftaran);
     }
@@ -59,21 +59,36 @@ class PendaftaranOsisController extends Controller
             // Kirim dua kali POST /api/pendaftaran-osis valid dengan siswa_id yang sama.
             // Bandingkan respons request kedua dan periksa apakah jumlah record di database bertambah.
             // Di mana dan bagaimana pencegahan pendaftaran ganda ini seharusnya divalidasi?
-            'siswa_id' => ['required', 'integer'],
+            'siswa_id' => 'required|integer|exists:siswa,id|unique:pendaftaran_osis,siswa_id',
 
             // TODO LATIHAN L4:
             // Pilihan bidang pendaftaran wajib dibatasi hanya pada: kepemimpinan, keagamaan, olahraga, atau seni.
             // Kirim POST / PUT dengan nilai pilihan_bidang di luar keempat opsi tersebut (misal: "robotik").
             // Periksa apakah request tersebut lolos atau ditolak dengan HTTP 422.
             // Bagaimana membatasi nilai input agar hanya menerima opsi yang diizinkan?
-            'pilihan_bidang' => ['required', 'string'],
+            'pilihan_bidang' => 'required|string|in:kepemimpinan,keagamaan,olahraga,seni',
 
             // TODO LATIHAN L5:
             // Motivasi wajib memiliki panjang antara 20 sampai 300 karakter.
             // Uji dengan mengirim teks motivasi yang terlalu pendek (19 karakter) atau terlalu panjang (301 karakter).
             // Amati apakah validasi menolak input tersebut dengan status 422.
             // Batasan panjang karakter apa yang belum diterapkan pada validasi ini?
-            'motivasi' => ['required', 'string'],
+            'motivasi' => 'required|string|min:20|max:300',
+        ],
+        [
+            'siswa_id.required' => 'Siswa wajib dipilih.',
+            'siswa_id.integer' => 'ID siswa harus berupa bilangan bulat.',
+            'siswa_id.exists' => 'Siswa yang dipilih tidak terdaftar.',
+            'siswa_id.unique' => 'Siswa ini sudah terdaftar sebagai calon OSIS.',
+
+            'pilihan_bidang.required' => 'Pilihan bidang wajib diisi.',
+            'pilihan_bidang.string' => 'Pilihan bidang harus berupa teks.',
+            'pilihan_bidang.in' => 'Pilihan bidang tidak valid.',
+
+            'motivasi.required' => 'Motivasi wajib diisi.',
+            'motivasi.string' => 'Motivasi harus berupa teks.',
+            'motivasi.min' => 'Motivasi minimal 20 karakter.',
+            'motivasi.max' => 'Motivasi maksimal 300 karakter.',
         ]);
 
         $pendaftaran = PendaftaranOsis::create([
@@ -91,7 +106,7 @@ class PendaftaranOsisController extends Controller
         return response()->json([
             'message' => 'Pendaftaran berhasil dibuat.',
             'data' => new PendaftaranOsisResource($pendaftaran),
-        ], 200);
+        ], 201);
     }
 
     /**
@@ -112,27 +127,30 @@ class PendaftaranOsisController extends Controller
             // Pada method PUT, siswa_id milik pendaftaran yang sedang diedit seharusnya boleh tetap digunakan.
             // Kirim PUT /api/pendaftaran-osis/{id} menggunakan siswa_id yang sama dengan data aslinya.
             // Perhatikan bahwa request ditolak dengan pesan duplikat (422) padahal itu adalah data milik sendiri.
-            // Bagaimana cara mengecualikan ID pendaftaran yang sedang diperbarui dari pemeriksaan keunikan?
-            'siswa_id' => [
-                'required',
-                'integer',
-                'exists:siswa,id',
-                'unique:pendaftaran_osis,siswa_id',
-            ],
+            // Bagaimana cara mengecualikan ID pendaftaran yang sedang diperbarui dari pemeriksaan keunikan
 
             // TODO LATIHAN L4:
             // Pilihan bidang pendaftaran wajib dibatasi hanya pada: kepemimpinan, keagamaan, olahraga, atau seni.
             // Kirim POST / PUT dengan nilai pilihan_bidang di luar keempat opsi tersebut (misal: "robotik").
             // Periksa apakah request tersebut lolos atau ditolak dengan HTTP 422.
             // Bagaimana membatasi nilai input agar hanya menerima opsi yang diizinkan?
-            'pilihan_bidang' => ['required', 'string'],
+            'pilihan_bidang' => 'required|string|in:kepemimpinan,keagamaan,olahraga,seni',
 
             // TODO LATIHAN L5:
             // Motivasi wajib memiliki panjang antara 20 sampai 300 karakter.
             // Uji dengan mengirim teks motivasi yang terlalu pendek (19 karakter) atau terlalu panjang (301 karakter).
             // Amati apakah validasi menolak input tersebut dengan status 422.
             // Batasan panjang karakter apa yang belum diterapkan pada validasi ini?
-            'motivasi' => ['required', 'string'],
+            'motivasi' => 'required|string|min:20|max:300'
+        ],
+        ['pilihan_bidang.required' => 'Pilihan bidang wajib diisi.',
+            'pilihan_bidang.string' => 'Pilihan bidang harus berupa teks.',
+            'pilihan_bidang.in' => 'Pilihan bidang tidak valid.',
+
+            'motivasi.required' => 'Motivasi wajib diisi.',
+            'motivasi.string' => 'Motivasi harus berupa teks.',
+            'motivasi.min' => 'Motivasi minimal 20 karakter.',
+            'motivasi.max' => 'Motivasi maksimal 300 karakter.',
         ]);
 
         // TODO LATIHAN L8:
@@ -141,7 +159,8 @@ class PendaftaranOsisController extends Controller
         // Mengapa nilai pilihan_bidang dan motivasi di database tidak berubah meskipun API mengembalikan pesan berhasil?
         // Field apa saja yang diteruskan pada proses update model?
         $pendaftaran->update([
-            'siswa_id' => $validated['siswa_id'],
+            'pilihan_bidang' => $validated['pilihan_bidang'],
+            'motivasi' => $validated['motivasi'],
         ]);
 
         $pendaftaran->load(['siswa.kelas', 'siswa.jenisKelamin']);
@@ -165,12 +184,15 @@ class PendaftaranOsisController extends Controller
             ], 404);
         }
 
+        $pendaftaran->delete();
         // TODO LATIHAN L9:
         // Request DELETE yang berhasil seharusnya menghapus data pendaftaran dari database dan mengembalikan HTTP 204 tanpa body.
         // Kirim DELETE /api/pendaftaran-osis/{id} pada ID yang tersedia.
         // Respons mengembalikan 204 No Content, tetapi lakukan GET detail atau cek database: datanya ternyata masih ada!
         // Operasi apa yang belum dipanggil pada instance model pendaftaran sebelum mengembalikan respons?
 
-        return response()->noContent();
+        return response()->json([
+            'message' => 'Berhasil Dihapus'
+        ], 200);
     }
 }
